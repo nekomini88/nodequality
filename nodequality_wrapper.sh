@@ -76,15 +76,26 @@ fi
 
 cp "$REPORT_FILE" "$LATEST_FILE"
 
+# 获取主机信息（公网 IP，失败回退本机 IP）
+HOST_NAME=$(hostname)
+HOST_IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null | tr -d '[:space:]')
+if [ -z "$HOST_IP" ]; then
+  HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+fi
+
 # 发送 Telegram 消息
 if [ -n "$RESULT_URL" ]; then
   MSG="🖥️ NodeQuality 每日测速报告
-时间: $TIMESTAMP
-结果链接: $RESULT_URL"
+🏷️ 主机: $HOST_NAME
+🌐 IP: $HOST_IP
+⏰ 时间: $TIMESTAMP
+🔗 结果链接: $RESULT_URL"
 else
   MSG="🖥️ NodeQuality 每日测速报告
-时间: $TIMESTAMP
-状态: 执行完成，未找到结果链接"
+🏷️ 主机: $HOST_NAME
+🌐 IP: $HOST_IP
+⏰ 时间: $TIMESTAMP
+📋 状态: 执行完成，未找到结果链接"
 fi
 
 echo "发送 Telegram 消息..."
