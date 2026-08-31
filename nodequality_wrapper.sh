@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # NodeQuality 自动测速包装脚本（优化版）
-# 只跑 IPQuality + NetQuality，跳过耗时的 HardwareQuality 和 Backroute
+# 只跑 IPQuality + NetQuality(低流量模式)，跳过耗时的 HardwareQuality 和 Backroute
 # 自动发送结果链接到 Telegram
 
 BASE=/root
@@ -34,21 +34,9 @@ echo " $TIMESTAMP"
 echo "========================================"
 echo
 
-# 使用 expect 自动处理交互，全部默认 yes
-expect <<'EOF' 2>&1 | tee "$LOG_FILE"
-set timeout 2400
-
-spawn bash -c "bash <(curl -sL https://run.NodeQuality.com)"
-
-# 所有提示都发送默认回车（= yes）
-expect {
-    "运行 HardwareQuality 测试" { send "\n"; exp_continue }
-    "运行 IPQuality 测试" { send "\n"; exp_continue }
-    "运行 NetQuality 测试" { send "\n"; exp_continue }
-    "运行 回程路由追踪" { send "\n"; exp_continue }
-    eof
-}
-EOF
+# 直接运行并自动回答：跳过 Hardware、运行 IP、低流量 Net、跳过 Backroute
+bash /tmp/nodequality_run.sh <<< $'n\ny\nl\nn\n' 2>&1 | tee "$LOG_FILE" || true
+rm -f /tmp/nodequality_run.sh
 
 echo
 echo "========================================"
