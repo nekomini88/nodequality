@@ -105,3 +105,28 @@ apt install -y expect curl
 - 脚本运行时长约 5-15 分钟（IPQuality + NetQuality），`expect` 超时设为 2400s
 - 若测试失败未产生结果链接，会推送"执行完成，未找到结果链接"的提示消息
 - 完整日志保留在 `nodequality-reports/` 便于排查
+
+## 多机模式（远端大盘鸡批量测速）
+
+单机模式只测「跑 wrapper 的那台机器」。要测**别的** VPS，走多机模式：本机用 cron 通过 SSH 依次/并行驱动远端测速，结果链接带 IP 一起推送。
+
+```
+Hermes cron (03:00) → nq_two_boxes_daily.sh
+                         ├─ ssh 主机A → bash /root/nq_run.sh → nodequality.com/r/<id>
+                         └─ ssh 主机B → bash /root/nq_run.sh → nodequality.com/r/<id>
+                       ↓ 汇总（每台一段，写明 IP）
+                  Telegram 频道 nekomini_服务器nq
+```
+
+| 文件 | 作用 |
+|---|---|
+| `nq_run.sh` | **部署到被测机器**：下载 `run.NodeQuality.com` → 应答 `n/y/l/n`（跳硬件/跑IP/低流量网络/跳回程）→ 把结果链接打到 stdout |
+| `nq_two_boxes_daily.sh` | **跑在本机**：SSH 并行触发多台 → 按固定顺序输出「主机标签 / IP / 结果链接」，stdout 即推送内容 |
+
+要点：
+- 远端只需能 `ssh root@<ip>` 免密（本机 `~/.ssh/id_ed25519` 已互信），依赖由 NodeQuality 脚本自己装。
+- 脚本里 `timeout 2400` 兜底；两机并行，整体约 10-15 分钟。
+- cron 用 `no_agent=true`：stdout 原样推送，**空输出=不推送**；失败分支也会打印尾部日志，不静默。
+- 加第三台：在 `HOSTS=( "标签|IP" ... )` 里追加一行即可。
+
+现状（2026-10-27 起）：cron `14b3d5f51ffa`，每天 03:00 (UTC+8)，测 `109.107.140.95`（4T）与 `193.111.31.176`（492G）。
